@@ -18,6 +18,7 @@ class BloomFilterPolicy : public FilterPolicy {
  public:
   explicit BloomFilterPolicy(int bits_per_key) : bits_per_key_(bits_per_key) {
     // We intentionally round down to reduce probing cost a little bit
+    // 哈希函数个数k，bits_per_key = m / n
     k_ = static_cast<size_t>(bits_per_key * 0.69);  // 0.69 =~ ln(2)
     if (k_ < 1) k_ = 1;
     if (k_ > 30) k_ = 30;
@@ -27,12 +28,16 @@ class BloomFilterPolicy : public FilterPolicy {
 
   void CreateFilter(const Slice* keys, int n, std::string* dst) const override {
     // Compute bloom filter size (in both bits and bytes)
+    // 1. 计算位数组长度
     size_t bits = n * bits_per_key_;
 
     // For small n, we can see a very high false positive rate.  Fix it
     // by enforcing a minimum bloom filter length.
+    // 应该是一个Bugfix
+    // 如果维数组长度太小，会导致即非常高的查找失败率。如果长度太小的话，强制提升到64
     if (bits < 64) bits = 64;
 
+    // 将位数调整为8的倍数
     size_t bytes = (bits + 7) / 8;
     bits = bytes * 8;
 
@@ -43,6 +48,7 @@ class BloomFilterPolicy : public FilterPolicy {
     for (int i = 0; i < n; i++) {
       // Use double-hashing to generate a sequence of hash values.
       // See analysis in [Kirsch,Mitzenmacher 2006].
+      // 对每个key生成哈希值
       uint32_t h = BloomHash(keys[i]);
       const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
       for (size_t j = 0; j < k_; j++) {

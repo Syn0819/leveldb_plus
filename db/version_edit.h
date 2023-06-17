@@ -15,12 +15,16 @@ namespace leveldb {
 
 class VersionSet;
 
+// 每个SST的元数据
 struct FileMetaData {
   FileMetaData() : refs(0), allowed_seeks(1 << 30), file_size(0) {}
 
   int refs;
+  // 如果这个SST正在或者已经compaction，就不能在查找了
   int allowed_seeks;  // Seeks allowed until compaction
+  // 唯一标识一个SST
   uint64_t number;
+  // 文件大小
   uint64_t file_size;    // File size in bytes
   InternalKey smallest;  // Smallest internal key served by table
   InternalKey largest;   // Largest internal key served by table
@@ -86,7 +90,7 @@ class VersionEdit {
   typedef std::set<std::pair<int, uint64_t>> DeletedFileSet;
 
   std::string comparator_;
-  uint64_t log_number_;
+  uint64_t log_number_; // 日志编号，该num之前的数据都可以删除，已经持久化
   uint64_t prev_log_number_;
   uint64_t next_file_number_;
   SequenceNumber last_sequence_;
@@ -96,8 +100,11 @@ class VersionEdit {
   bool has_next_file_number_;
   bool has_last_sequence_;
 
+  // 本次文件合并时每层的结束位置
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
+  // 本次Compaction所删除的文件，即合并了哪些文件
   DeletedFileSet deleted_files_;
+  // 本次合并新增的文件，FileMetaData即文件元信息
   std::vector<std::pair<int, FileMetaData>> new_files_;
 };
 

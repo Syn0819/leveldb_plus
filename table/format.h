@@ -20,9 +20,11 @@ struct ReadOptions;
 
 // BlockHandle is a pointer to the extent of a file that stores a data
 // block or a meta block.
+// 表示Block在SST中的offset和大小
 class BlockHandle {
  public:
   // Maximum encoding length of a BlockHandle
+  // 对一个64位数字，使用变长编码最长的10个字节，所以这里设置为20
   enum { kMaxEncodedLength = 10 + 10 };
 
   BlockHandle();
@@ -35,6 +37,7 @@ class BlockHandle {
   uint64_t size() const { return size_; }
   void set_size(uint64_t size) { size_ = size; }
 
+  // 编解码 offset + size
   void EncodeTo(std::string* dst) const;
   Status DecodeFrom(Slice* input);
 
@@ -45,6 +48,7 @@ class BlockHandle {
 
 // Footer encapsulates the fixed information stored at the tail
 // end of every table file.
+// 注脚区，一些辅助信息
 class Footer {
  public:
   // Encoded length of a Footer.  Note that the serialization of a
@@ -81,6 +85,7 @@ static const size_t kBlockTrailerSize = 5;
 struct BlockContents {
   Slice data;           // Actual contents of data
   bool cachable;        // True iff data can be cached
+  // 表示数据块的内存是否是堆上分配，是的话需要主动释放内存
   bool heap_allocated;  // True iff caller should delete[] data.data()
 };
 

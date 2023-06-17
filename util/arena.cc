@@ -18,6 +18,7 @@ Arena::~Arena() {
 }
 
 char* Arena::AllocateFallback(size_t bytes) {
+  // 申请内存的大小大于1024B 直接申请一个对应大小的块
   if (bytes > kBlockSize / 4) {
     // Object is more than a quarter of our block size.  Allocate it separately
     // to avoid wasting too much space in leftover bytes.
@@ -26,6 +27,7 @@ char* Arena::AllocateFallback(size_t bytes) {
   }
 
   // We waste the remaining space in the current block.
+  // 申请内存小于等于1024B，申请一个新的块，并分配
   alloc_ptr_ = AllocateNewBlock(kBlockSize);
   alloc_bytes_remaining_ = kBlockSize;
 
@@ -39,6 +41,9 @@ char* Arena::AllocateAligned(size_t bytes) {
   const int align = (sizeof(void*) > 8) ? sizeof(void*) : 8;
   static_assert((align & (align - 1)) == 0,
                 "Pointer size should be a power of 2");
+  // 对齐到指针size的倍数,可以提高内存访问性能(maybe?
+  // 取模获取alloc_ptr_最后几位(根据平台指针大小)
+  // align减去就是需要补齐的大小
   size_t current_mod = reinterpret_cast<uintptr_t>(alloc_ptr_) & (align - 1);
   size_t slop = (current_mod == 0 ? 0 : align - current_mod);
   size_t needed = bytes + slop;

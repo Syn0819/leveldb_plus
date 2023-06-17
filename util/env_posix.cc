@@ -133,12 +133,18 @@ class Limiter {
 //
 // Instances of this class are thread-friendly but not thread-safe, as required
 // by the SequentialFile API.
+// 在POSIX标准的文件系统上对顺序读的实现
 class PosixSequentialFile final : public SequentialFile {
  public:
   PosixSequentialFile(std::string filename, int fd)
       : fd_(fd), filename_(std::move(filename)) {}
   ~PosixSequentialFile() override { close(fd_); }
 
+  /* @function: 从指定位置顺序读取指定字节数
+  ** @param n: 要读取的字节数
+  ** @param result： 以Slice的形式对读取的字节进行封装
+  ** @param scratch：直接返回读取的n个字节
+  */
   Status Read(size_t n, Slice* result, char* scratch) override {
     Status status;
     while (true) {
@@ -156,6 +162,9 @@ class PosixSequentialFile final : public SequentialFile {
     return status;
   }
 
+  /* @function: 从当前位置，顺序向后忽略指定的字节数
+  ** @param n: 要读取的字节数
+  */
   Status Skip(uint64_t n) override {
     if (::lseek(fd_, n, SEEK_CUR) == static_cast<off_t>(-1)) {
       return PosixError(filename_, errno);
@@ -164,8 +173,8 @@ class PosixSequentialFile final : public SequentialFile {
   }
 
  private:
-  const int fd_;
-  const std::string filename_;
+  const int fd_;                // 文件描述符
+  const std::string filename_;  // 文件名
 };
 
 // Implements random read access in a file using pread().
@@ -274,6 +283,7 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   const std::string filename_;
 };
 
+// 实现文件顺序写
 class PosixWritableFile final : public WritableFile {
  public:
   PosixWritableFile(std::string filename, int fd)
@@ -290,6 +300,9 @@ class PosixWritableFile final : public WritableFile {
     }
   }
 
+  /* @function: 以追加的方式对文件进行顺序写入
+  ** @param data: 需要写入的字符串
+  */
   Status Append(const Slice& data) override {
     size_t write_size = data.size();
     const char* write_data = data.data();
@@ -331,6 +344,7 @@ class PosixWritableFile final : public WritableFile {
 
   Status Flush() override { return FlushBuffer(); }
 
+  // TODO: 不太清楚这里
   Status Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.
     //
@@ -570,8 +584,12 @@ class PosixEnv : public Env {
     return status;
   }
 
+  // 创建一个可写文件
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result) override {
+    // O_TRUNC 如果文件则截断为0
+    // O_WRONLY 只写
+    // O_CREAT 若文件不存在则创建
     int fd = ::open(filename.c_str(),
                     O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {

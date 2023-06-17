@@ -21,6 +21,7 @@ class MemTable {
  public:
   // MemTables are reference counted.  The initial reference count
   // is zero and the caller must call Ref() at least once.
+  // Memtable是有引用计数的，初始化计数为 0
   explicit MemTable(const InternalKeyComparator& comparator);
 
   MemTable(const MemTable&) = delete;
@@ -40,6 +41,8 @@ class MemTable {
 
   // Returns an estimate of the number of bytes of data in use by this
   // data structure. It is safe to call when MemTable is being modified.
+  // 估计memtable的占用空间大小
+  // 该方法线程安全，可以在memtable被修改的时候调用
   size_t ApproximateMemoryUsage();
 
   // Return an iterator that yields the contents of the memtable.
@@ -48,11 +51,15 @@ class MemTable {
   // while the returned iterator is live.  The keys returned by this
   // iterator are internal keys encoded by AppendInternalKey in the
   // db/format.{h,cc} module.
+  // 1. 使用迭代器时要保证MemTbale存在
+  // 2. 使用迭代器返回的是 internal keys，是使用AppendInternalKey编码的
   Iterator* NewIterator();
 
   // Add an entry into memtable that maps key to value at the
   // specified sequence number and with the specified type.
   // Typically value will be empty if type==kTypeDeletion.
+  // seq
+  // type, 0x0表示删除，0x1表示插入
   void Add(SequenceNumber seq, ValueType type, const Slice& key,
            const Slice& value);
 

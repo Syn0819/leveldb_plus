@@ -28,6 +28,7 @@ size_t MemTable::ApproximateMemoryUsage() { return arena_.MemoryUsage(); }
 int MemTable::KeyComparator::operator()(const char* aptr,
                                         const char* bptr) const {
   // Internal keys are encoded as length-prefixed strings.
+  // 获取internal key并比较
   Slice a = GetLengthPrefixedSlice(aptr);
   Slice b = GetLengthPrefixedSlice(bptr);
   return comparator.Compare(a, b);
@@ -76,6 +77,7 @@ Iterator* MemTable::NewIterator() { return new MemTableIterator(&table_); }
 void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
                    const Slice& value) {
   // Format of an entry is concatenation of:
+  // 采用变长编码，写入entry的格式如下：
   //  key_size     : varint32 of internal_key.size()
   //  key bytes    : char[internal_key.size()]
   //  tag          : uint64((sequence << 8) | type)
@@ -87,7 +89,10 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   const size_t encoded_len = VarintLength(internal_key_size) +
                              internal_key_size + VarintLength(val_size) +
                              val_size;
+  // 分配内存
   char* buf = arena_.Allocate(encoded_len);
+  // 这里按照下述构造数据
+  // len | key | SequenceNumber + ValueType | value_len | value
   char* p = EncodeVarint32(buf, internal_key_size);
   std::memcpy(p, key.data(), key_size);
   p += key_size;
@@ -96,12 +101,16 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   p = EncodeVarint32(p, val_size);
   std::memcpy(p, value.data(), val_size);
   assert(p + val_size == buf + encoded_len);
+  // 插入跳表
   table_.Insert(buf);
 }
 
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
+  // 1. 解析出LookUpKey
   Slice memkey = key.memtable_key();
+  // 生成一个SkipList迭代器
   Table::Iterator iter(&table_);
+  // 2. 跳表中查找第一个大于等于key的数据
   iter.Seek(memkey.data());
   if (iter.Valid()) {
     // entry format is:
@@ -113,20 +122,24 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
     // Check that it belongs to same user key.  We do not check the
     // sequence number since the Seek() call above should have skipped
     // all entries with overly large sequence numbers.
-    const char* entry = iter.key();
+    const char* entry = iter.key(); // LookUpKey
     uint32_t key_length;
+    // 3. 解析出user key的起始位置和长度
     const char* key_ptr = GetVarint32Ptr(entry, entry + 5, &key_length);
+    // 4. 如果判断key完全相同，则继续取出ValueType，判断是否已经删除
     if (comparator_.comparator.user_comparator()->Compare(
             Slice(key_ptr, key_length - 8), key.user_key()) == 0) {
       // Correct user key
       const uint64_t tag = DecodeFixed64(key_ptr + key_length - 8);
       switch (static_cast<ValueType>(tag & 0xff)) {
         case kTypeValue: {
+          // 如果ValueType为增加键值对，则取出值，并返回true 
           Slice v = GetLengthPrefixedSlice(key_ptr + key_length);
           value->assign(v.data(), v.size());
           return true;
         }
         case kTypeDeletion:
+          // 如果ValueType为删除键值对，则将状态赋值为NotFound，并且返回true
           *s = Status::NotFound(Slice());
           return true;
       }

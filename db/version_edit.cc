@@ -39,6 +39,8 @@ void VersionEdit::Clear() {
   new_files_.clear();
 }
 
+// MANIFEST，记录所有VersionEdit的信息，用来在DB重启时恢复最新的版本信息
+// 按照一定顺序编码成员变量
 void VersionEdit::EncodeTo(std::string* dst) const {
   if (has_comparator_) {
     PutVarint32(dst, kComparator);

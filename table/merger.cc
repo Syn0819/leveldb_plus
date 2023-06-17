@@ -11,6 +11,8 @@
 namespace leveldb {
 
 namespace {
+// 将多个迭代器存储在一个迭代器里面，与TwoLevelIterator不同的是，这里面的迭代器是平级的
+// 作用：每次比较取出这些迭代器的最大值或者最小值
 class MergingIterator : public Iterator {
  public:
   MergingIterator(const Comparator* comparator, Iterator** children, int n)
@@ -28,8 +30,10 @@ class MergingIterator : public Iterator {
 
   bool Valid() const override { return (current_ != nullptr); }
 
+  // 获取所有迭代器当前指向数据的最小值
   void SeekToFirst() override {
     for (int i = 0; i < n_; i++) {
+      // 找到每个迭代器的首元素
       children_[i].SeekToFirst();
     }
     FindSmallest();
@@ -56,10 +60,13 @@ class MergingIterator : public Iterator {
     assert(Valid());
 
     // Ensure that all children are positioned after key().
-    // If we are moving in the forward direction, it is already
+    // if we are moving in the forward direction, it is already
     // true for all of the non-current_ children since current_ is
     // the smallest child and key() == current_->key().  Otherwise,
     // we explicitly position the non-current_ children.
+    // 确保所有子迭代器的位置都在当前key之后
+    // 如果是前向移动，那么不需要做什么操作，应该本来就是最小key
+    // 如果是后向移动，那么需要将其他迭代器移动到大于当前键的第一个位置
     if (direction_ != kForward) {
       for (int i = 0; i < n_; i++) {
         IteratorWrapper* child = &children_[i];
@@ -139,14 +146,19 @@ class MergingIterator : public Iterator {
   // For now we use a simple array since we expect a very small number
   // of children in leveldb.
   const Comparator* comparator_;
+  // 迭代器数组
   IteratorWrapper* children_;
+  // 迭代器总数
   int n_;
+  // 最小值或者最大值所指向的迭代器
   IteratorWrapper* current_;
+  // 迭代方向
   Direction direction_;
 };
 
 void MergingIterator::FindSmallest() {
   IteratorWrapper* smallest = nullptr;
+  // 遍历迭代器数组，找到最小值
   for (int i = 0; i < n_; i++) {
     IteratorWrapper* child = &children_[i];
     if (child->Valid()) {

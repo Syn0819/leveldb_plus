@@ -19,10 +19,16 @@ const char* Status::CopyState(const char* state) {
 }
 
 Status::Status(Code code, const Slice& msg, const Slice& msg2) {
+  // 断言检查
   assert(code != kOk);
+  
   const uint32_t len1 = static_cast<uint32_t>(msg.size());
   const uint32_t len2 = static_cast<uint32_t>(msg2.size());
+
+  // 若msg2不为空, size = len1 + len2 + 2，为什么加2？line37 38
+  // 否则, size = len1
   const uint32_t size = len1 + (len2 ? (2 + len2) : 0);
+  // status格式 +5
   char* result = new char[size + 5];
   std::memcpy(result, &size, sizeof(size));
   result[4] = static_cast<char>(code);

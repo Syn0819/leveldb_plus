@@ -39,6 +39,7 @@ class LEVELDB_EXPORT Slice {
   Slice(const char* s) : data_(s), size_(strlen(s)) {}
 
   // Intentionally copyable.
+  // 默认的拷贝构造和赋值运算符
   Slice(const Slice&) = default;
   Slice& operator=(const Slice&) = default;
 
@@ -68,6 +69,7 @@ class LEVELDB_EXPORT Slice {
   }
 
   // Drop the first "n" bytes from this slice.
+  // 移除前缀，注意实现
   void remove_prefix(size_t n) {
     assert(n <= size());
     data_ += n;
@@ -84,6 +86,7 @@ class LEVELDB_EXPORT Slice {
   int compare(const Slice& b) const;
 
   // Return true iff "x" is a prefix of "*this"
+  // 检查x是否为当前slice的前缀
   bool starts_with(const Slice& x) const {
     return ((size_ >= x.size_) && (memcmp(data_, x.data_, x.size_) == 0));
   }

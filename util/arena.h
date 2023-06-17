@@ -26,6 +26,7 @@ class Arena {
   char* Allocate(size_t bytes);
 
   // Allocate memory with the normal alignment guarantees provided by malloc.
+  // 分配对齐内存，意思是分配内存的起始地址会先对齐
   char* AllocateAligned(size_t bytes);
 
   // Returns an estimate of the total memory usage of data allocated
@@ -56,7 +57,9 @@ inline char* Arena::Allocate(size_t bytes) {
   // The semantics of what to return are a bit messy if we allow
   // 0-byte allocations, so we disallow them here (we don't need
   // them for our internal use).
+  // 不允许分配大小为0内存块，因为会造成语义混乱，且在leveldb中没有这种场景
   assert(bytes > 0);
+  // 看下剩下已申请的内存够不。不够，通过AllocateFallback获取
   if (bytes <= alloc_bytes_remaining_) {
     char* result = alloc_ptr_;
     alloc_ptr_ += bytes;

@@ -179,6 +179,7 @@ struct SkipList<Key, Comparator>::Node {
 template <typename Key, class Comparator>
 typename SkipList<Key, Comparator>::Node* SkipList<Key, Comparator>::NewNode(
     const Key& key, int height) {
+  // Node中变长数组next_默认含有一个元素 
   char* const node_memory = arena_->AllocateAligned(
       sizeof(Node) + sizeof(std::atomic<Node*>) * (height - 1));
   return new (node_memory) Node(key);
@@ -267,6 +268,7 @@ SkipList<Key, Comparator>::FindGreaterOrEqual(const Key& key,
       // Keep searching in this list
       x = next;
     } else {
+      // 记录当前层搜索到第一个小于等于key的节点
       if (prev != nullptr) prev[level] = x;
       if (level == 0) {
         return next;
@@ -304,6 +306,7 @@ typename SkipList<Key, Comparator>::Node* SkipList<Key, Comparator>::FindLast()
     const {
   Node* x = head_;
   int level = GetMaxHeight() - 1;
+  // 从高层稀疏的遍历，减少次数
   while (true) {
     Node* next = x->Next(level);
     if (next == nullptr) {

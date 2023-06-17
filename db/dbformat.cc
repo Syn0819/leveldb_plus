@@ -44,11 +44,15 @@ const char* InternalKeyComparator::Name() const {
   return "leveldb.InternalKeyComparator";
 }
 
+// 在跳表中排序使用
 int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   // Order by:
   //    increasing user key (according to user-supplied comparator)
   //    decreasing sequence number
   //    decreasing type (though sequence# should be enough to disambiguate)
+  // 排列顺序：
+  //  1. 按照user key升序
+  //  2. 按照seq num降序
   int r = user_comparator_->Compare(ExtractUserKey(akey), ExtractUserKey(bkey));
   if (r == 0) {
     const uint64_t anum = DecodeFixed64(akey.data() + akey.size() - 8);
@@ -116,6 +120,7 @@ bool InternalFilterPolicy::KeyMayMatch(const Slice& key, const Slice& f) const {
 
 LookupKey::LookupKey(const Slice& user_key, SequenceNumber s) {
   size_t usize = user_key.size();
+  // 13? 8 for seq num，5 for usize的变长编码
   size_t needed = usize + 13;  // A conservative estimate
   char* dst;
   if (needed <= sizeof(space_)) {
@@ -123,7 +128,7 @@ LookupKey::LookupKey(const Slice& user_key, SequenceNumber s) {
   } else {
     dst = new char[needed];
   }
-  start_ = dst;
+  start_ = dst; // internal key起始位置
   dst = EncodeVarint32(dst, usize + 8);
   kstart_ = dst;
   std::memcpy(dst, user_key.data(), usize);

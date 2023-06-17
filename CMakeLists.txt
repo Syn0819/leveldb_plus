@@ -6,6 +6,8 @@ cmake_minimum_required(VERSION 3.9)
 # Keep the version below in sync with the one in db.h
 project(leveldb VERSION 1.23.0 LANGUAGES C CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # C standard can be overridden when this is used as a sub-project.
 if(NOT CMAKE_C_STANDARD)
   # This project can use C11, but will gracefully decay down to C89.
@@ -89,6 +91,7 @@ check_cxx_compiler_flag(-Wno-missing-field-initializers
 include(CheckCXXSourceCompiles)
 
 # Test whether C++17 __has_include is available.
+# 检查编译器是否支持 __has_include 预处理器宏，然后通过__has_include检查是否含入头文件
 check_cxx_source_compiles("
 #if defined(__has_include) &&  __has_include(<string>)
 #include <string>
@@ -438,6 +441,7 @@ if(LEVELDB_BUILD_BENCHMARKS)
   endfunction(leveldb_benchmark)
 
   if(NOT BUILD_SHARED_LIBS)
+    leveldb_test("app/main.cpp")
     leveldb_benchmark("benchmarks/db_bench.cc")
   endif(NOT BUILD_SHARED_LIBS)
 

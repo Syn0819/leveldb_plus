@@ -64,6 +64,7 @@ typedef uint64_t SequenceNumber;
 
 // We leave eight bits empty at the bottom so a type and sequence#
 // can be packed together into 64-bits.
+// 留下8位，放ValueType
 static const SequenceNumber kMaxSequenceNumber = ((0x1ull << 56) - 1);
 
 struct ParsedInternalKey {
@@ -168,6 +169,7 @@ inline int InternalKeyComparator::Compare(const InternalKey& a,
   return Compare(a.Encode(), b.Encode());
 }
 
+// InternalKey解析到内存，返回false说明数据损坏
 inline bool ParseInternalKey(const Slice& internal_key,
                              ParsedInternalKey* result) {
   const size_t n = internal_key.size();
@@ -181,6 +183,7 @@ inline bool ParseInternalKey(const Slice& internal_key,
 }
 
 // A helper class useful for DBImpl::Get()
+// 封装和管理 user key和序列号 组合的内部表示形式
 class LookupKey {
  public:
   // Initialize *this for looking up user_key at a snapshot with
@@ -209,9 +212,10 @@ class LookupKey {
   //                                    <-- end_
   // The array is a suitable MemTable key.
   // The suffix starting with "userkey" can be used as an InternalKey.
-  const char* start_;
-  const char* kstart_;
-  const char* end_;
+  const char* start_;  // 起始位置
+  const char* kstart_; // internal key的起始位置
+  const char* end_;   // 结束位置
+  //
   char space_[200];  // Avoid allocation for short keys
 };
 

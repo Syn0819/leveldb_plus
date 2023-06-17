@@ -40,6 +40,7 @@ class Writer {
   Status EmitPhysicalRecord(RecordType type, const char* ptr, size_t length);
 
   WritableFile* dest_;
+  // 当前块的写入偏移量
   int block_offset_;  // Current offset in block
 
   // crc32c values for all supported record types.  These are

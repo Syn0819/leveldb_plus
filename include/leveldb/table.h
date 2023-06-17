@@ -37,6 +37,10 @@ class LEVELDB_EXPORT Table {
   // for the duration of the returned table's lifetime.
   //
   // *file must remain live while this Table is in use.
+  //
+  // 打开传入的file文件，范围是[0, file_size)
+  // 读取元数据的entry，准备进行实际数据的读取
+  // 打开成功将通过*table返回给用户，用户负责释放
   static Status Open(const Options& options, RandomAccessFile* file,
                      uint64_t file_size, Table** table);
 
@@ -69,6 +73,7 @@ class LEVELDB_EXPORT Table {
   // Calls (*handle_result)(arg, ...) with the entry found after a call
   // to Seek(key).  May not make such a call if filter policy says
   // that key is not present.
+  // 在seek发现某个键存在时，就可以通过这个函数获取到数据
   Status InternalGet(const ReadOptions&, const Slice& key, void* arg,
                      void (*handle_result)(void* arg, const Slice& k,
                                            const Slice& v));

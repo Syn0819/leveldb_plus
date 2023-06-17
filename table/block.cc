@@ -26,9 +26,11 @@ Block::Block(const BlockContents& contents)
     : data_(contents.data.data()),
       size_(contents.data.size()),
       owned_(contents.heap_allocated) {
+  // 一个block的大小不能小于4字节
   if (size_ < sizeof(uint32_t)) {
     size_ = 0;  // Error marker
   } else {
+    // 最大允许的重启点数目，这里就是减去四个字节，然后按字节计数
     size_t max_restarts_allowed = (size_ - sizeof(uint32_t)) / sizeof(uint32_t);
     if (NumRestarts() > max_restarts_allowed) {
       // The size is too small for NumRestarts()
@@ -164,6 +166,7 @@ class Block::Iter : public Iterator {
   void Seek(const Slice& target) override {
     // Binary search in restart array to find the last restart point
     // with a key < target
+    // 1. 二分查找，找到第一个小于target的重启点位置
     uint32_t left = 0;
     uint32_t right = num_restarts_ - 1;
     int current_key_compare = 0;
@@ -172,7 +175,8 @@ class Block::Iter : public Iterator {
       // If we're already scanning, use the current position as a starting
       // point. This is beneficial if the key we're seeking to is ahead of the
       // current position.
-      current_key_compare = Compare(key_, target);
+      // 这里就是一个fast path，和目前key_进行比较
+        current_key_compare = Compare(key_, target);
       if (current_key_compare < 0) {
         // key_ is smaller than target
         left = restart_index_;
@@ -186,6 +190,7 @@ class Block::Iter : public Iterator {
 
     while (left < right) {
       uint32_t mid = (left + right + 1) / 2;
+      // 重启点偏移量
       uint32_t region_offset = GetRestartPoint(mid);
       uint32_t shared, non_shared, value_length;
       const char* key_ptr =
@@ -211,6 +216,7 @@ class Block::Iter : public Iterator {
     // This is true if we determined the key we desire is in the current block
     // and is after than the current key.
     assert(current_key_compare == 0 || Valid());
+    // fast path, 查找结果在当前重启点的右边, 直接遍历查找就行
     bool skip_seek = left == restart_index_ && current_key_compare < 0;
     if (!skip_seek) {
       SeekToRestartPoint(left);

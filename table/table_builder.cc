@@ -37,15 +37,15 @@ struct TableBuilder::Rep {
 
   Options options;
   Options index_block_options;
-  WritableFile* file;
-  uint64_t offset;
+  WritableFile* file; // 文件抽象
+  uint64_t offset;  // 文件写入位置
   Status status;
-  BlockBuilder data_block;
-  BlockBuilder index_block;
-  std::string last_key;
-  int64_t num_entries;
+  BlockBuilder data_block;  // data_block数据缓存
+  BlockBuilder index_block; // index_block数据缓存
+  std::string last_key; // 最后一个键，也就是最大键
+  int64_t num_entries;  // data_block中的entry数
   bool closed;  // Either Finish() or Abandon() has been called.
-  FilterBlockBuilder* filter_block;
+  FilterBlockBuilder* filter_block; // filter_block数据缓存
 
   // We do not emit the index entry for a block until we have seen the
   // first key for the next data block.  This allows us to use shorter
@@ -56,7 +56,7 @@ struct TableBuilder::Rep {
   // blocks.
   //
   // Invariant: r->pending_index_entry is true only if data_block is empty.
-  bool pending_index_entry;
+  bool pending_index_entry; // 表示刚刷新一个Data Block到磁盘，需要开启index block
   BlockHandle pending_handle;  // Handle to add to index block
 
   std::string compressed_output;
@@ -99,8 +99,10 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
     assert(r->options.comparator->Compare(key, Slice(r->last_key)) > 0);
   }
 
+  // 一个Data Block刚刷到磁盘
   if (r->pending_index_entry) {
     assert(r->data_block.empty());
+    // 找到一个更短的key，更新last_key，以更紧凑的表示键范围
     r->options.comparator->FindShortestSeparator(&r->last_key, key);
     std::string handle_encoding;
     r->pending_handle.EncodeTo(&handle_encoding);
@@ -108,14 +110,17 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
     r->pending_index_entry = false;
   }
 
+  // data block增加了一个key，filter那边也要更新
   if (r->filter_block != nullptr) {
     r->filter_block->AddKey(key);
   }
 
   r->last_key.assign(key.data(), key.size());
+  // 写入计数，在
   r->num_entries++;
+  // 数据写入block, 主要就是key格式的转换（有共享）
   r->data_block.Add(key, value);
-
+  // 写入数据超过了block的阈值，切下一个block，需要立即刷盘
   const size_t estimated_block_size = r->data_block.CurrentSizeEstimate();
   if (estimated_block_size >= r->options.block_size) {
     Flush();
@@ -130,6 +135,7 @@ void TableBuilder::Flush() {
   assert(!r->pending_index_entry);
   WriteBlock(&r->data_block, &r->pending_handle);
   if (ok()) {
+    // 一个data_block已经被刷盘，index_block需要更新
     r->pending_index_entry = true;
     r->status = r->file->Flush();
   }
@@ -138,6 +144,7 @@ void TableBuilder::Flush() {
   }
 }
 
+//
 void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   // File format contains a sequence of blocks where each block has:
   //    block_data: uint8[n]
@@ -211,6 +218,10 @@ void TableBuilder::WriteRawBlock(const Slice& block_contents,
 Status TableBuilder::status() const { return rep_->status; }
 
 Status TableBuilder::Finish() {
+  // 写完data block之后，调用Finish写后面的一些blcok，包括：
+  // filter block
+  // meta block
+  // index block
   Rep* r = rep_;
   Flush();
   assert(!r->closed);
@@ -224,7 +235,7 @@ Status TableBuilder::Finish() {
                   &filter_block_handle);
   }
 
-  // Write metaindex block
+  // Write meta index block
   if (ok()) {
     BlockBuilder meta_index_block(&r->options);
     if (r->filter_block != nullptr) {
@@ -232,6 +243,7 @@ Status TableBuilder::Finish() {
       std::string key = "filter.";
       key.append(r->options.filter_policy->Name());
       std::string handle_encoding;
+      // 写入的是filter block的offset和size
       filter_block_handle.EncodeTo(&handle_encoding);
       meta_index_block.Add(key, handle_encoding);
     }
@@ -241,11 +253,14 @@ Status TableBuilder::Finish() {
   }
 
   // Write index block
+  // 看上去index block只有一个，写入一次
   if (ok()) {
     if (r->pending_index_entry) {
       r->options.comparator->FindShortSuccessor(&r->last_key);
       std::string handle_encoding;
+      // index block的value就是 一个data block的offset和size
       r->pending_handle.EncodeTo(&handle_encoding);
+      // key是data block的起始key
       r->index_block.Add(r->last_key, Slice(handle_encoding));
       r->pending_index_entry = false;
     }
@@ -258,6 +273,11 @@ Status TableBuilder::Finish() {
     footer.set_metaindex_handle(metaindex_block_handle);
     footer.set_index_handle(index_block_handle);
     std::string footer_encoding;
+    // 写入数据包括:
+    // 1. meta index block的位置
+    // 2. index block的位置
+    // 3. padding, 补齐20字节
+    // 4. 魔数
     footer.EncodeTo(&footer_encoding);
     r->status = r->file->Append(footer_encoding);
     if (r->status.ok()) {

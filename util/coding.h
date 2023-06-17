@@ -105,8 +105,10 @@ inline uint64_t DecodeFixed64(const char* ptr) {
 // Internal routine for use by fallback path of GetVarint32Ptr
 const char* GetVarint32PtrFallback(const char* p, const char* limit,
                                    uint32_t* value);
+// return: 指向变长编码结束后的位置
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
+  // fast path?
   if (p < limit) {
     uint32_t result = *(reinterpret_cast<const uint8_t*>(p));
     if ((result & 128) == 0) {

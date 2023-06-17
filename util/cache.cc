@@ -48,6 +48,8 @@ struct LRUHandle {
   LRUHandle* prev;
   size_t charge;  // TODO(opt): Only allow uint32_t?
   size_t key_length;
+  // 标志一个条目在缓存中是否还存在引用
+  // 什么时候更改？1. 通过deleter、Erase删除条目，通过Insert插入重复的元素、或者销毁缓存
   bool in_cache;     // Whether entry is in the cache.
   uint32_t refs;     // References, including cache reference, if present.
   uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
@@ -67,6 +69,9 @@ struct LRUHandle {
 // table implementations in some of the compiler/runtime combinations
 // we have tested.  E.g., readrandom speeds up by ~5% over the g++
 // 4.4.3's builtin hashtable.
+// 提供了一个简单的哈希表实现
+// 1. 去除了移植性问题
+// 2. 对比内置实现，快了将近5%
 class HandleTable {
  public:
   HandleTable() : length_(0), elems_(0), list_(nullptr) { Resize(); }
@@ -177,22 +182,22 @@ class LRUCache {
   bool FinishErase(LRUHandle* e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Initialized before use.
-  size_t capacity_;
+  size_t capacity_; // 容量
 
   // mutex_ protects the following state.
   mutable port::Mutex mutex_;
-  size_t usage_ GUARDED_BY(mutex_);
+  size_t usage_ GUARDED_BY(mutex_); // 当前使用量
 
   // Dummy head of LRU list.
   // lru.prev is newest entry, lru.next is oldest entry.
   // Entries have refs==1 and in_cache==true.
-  LRUHandle lru_ GUARDED_BY(mutex_);
+  LRUHandle lru_ GUARDED_BY(mutex_); // 未使用的链表节点
 
   // Dummy head of in-use list.
   // Entries are in use by clients, and have refs >= 2 and in_cache==true.
-  LRUHandle in_use_ GUARDED_BY(mutex_);
+  LRUHandle in_use_ GUARDED_BY(mutex_); // 正在使用的节点链表
 
-  HandleTable table_ GUARDED_BY(mutex_);
+  HandleTable table_ GUARDED_BY(mutex_); // 哈希表，存储所有节点
 };
 
 LRUCache::LRUCache() : capacity_(0), usage_(0) {
@@ -338,14 +343,15 @@ static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {
  private:
-  LRUCache shard_[kNumShards];
+  LRUCache shard_[kNumShards]; // 多个表，进行分片
   port::Mutex id_mutex_;
   uint64_t last_id_;
 
   static inline uint32_t HashSlice(const Slice& s) {
     return Hash(s.data(), s.size(), 0);
   }
-
+    
+  // 使用哈希值的前四位进行分片
   static uint32_t Shard(uint32_t hash) { return hash >> (32 - kNumShardBits); }
 
  public:

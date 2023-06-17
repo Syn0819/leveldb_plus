@@ -77,18 +77,19 @@ class LEVELDB_EXPORT Status {
 
  private:
   enum Code {
-    kOk = 0,
-    kNotFound = 1,
-    kCorruption = 2,
-    kNotSupported = 3,
-    kInvalidArgument = 4,
-    kIOError = 5
+    kOk = 0,              // 正常
+    kNotFound = 1,        // 没有找到相关项
+    kCorruption = 2,      // 异常崩溃
+    kNotSupported = 3,    // 不支持操作
+    kInvalidArgument = 4, // 非法参数
+    kIOError = 5          // IO错误
   };
 
   Code code() const {
     return (state_ == nullptr) ? kOk : static_cast<Code>(state_[4]);
   }
 
+  // implementation in status.cc
   Status(Code code, const Slice& msg, const Slice& msg2);
   static const char* CopyState(const char* s);
 
@@ -97,6 +98,8 @@ class LEVELDB_EXPORT Status {
   //    state_[0..3] == length of message
   //    state_[4]    == code
   //    state_[5..]  == message
+  // 当没有出现问题时，state_为null
+  // 出现问题，则以一个数组来放置错误信息，具体格式如上
   const char* state_;
 };
 

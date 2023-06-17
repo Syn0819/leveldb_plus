@@ -53,6 +53,8 @@ class Reader {
   // "*scratch" as temporary storage.  The contents filled in *record
   // will only be valid until the next mutating operation on this
   // reader or the next mutation to *scratch.
+  // 读取记录，数据保存在record中，返回值表示读取是否成功
+  // scratch作用: 
   bool ReadRecord(Slice* record, std::string* scratch);
 
   // Returns the physical offset of the last record returned by ReadRecord.
@@ -62,6 +64,7 @@ class Reader {
 
  private:
   // Extend record types with the following special values
+  // 扩展RecordType类型
   enum {
     kEof = kMaxRecordType + 1,
     // Returned whenever we find an invalid physical record.
@@ -93,8 +96,10 @@ class Reader {
   bool eof_;  // Last Read() indicated EOF by returning < kBlockSize
 
   // Offset of the last record returned by ReadRecord.
+  // 上一次record的起始偏移量 
   uint64_t last_record_offset_;
   // Offset of the first location past the end of buffer_.
+  // 当前buffer的结束偏移量，也可以表示下一次读取的起始偏移量
   uint64_t end_of_buffer_offset_;
 
   // Offset at which to start looking for the first record to return
@@ -103,6 +108,7 @@ class Reader {
   // True if we are resynchronizing after a seek (initial_offset_ > 0). In
   // particular, a run of kMiddleType and kLastType records can be silently
   // skipped in this mode
+  // 在这个模式下如果遇到损坏或者无法识别的record，会跳过
   bool resyncing_;
 };
 

@@ -19,12 +19,12 @@ void PutFixed64(std::string* dst, uint64_t value) {
 }
 
 char* EncodeVarint32(char* dst, uint32_t v) {
-  // Operate on characters as unsigneds
+  // Operate on characters as unsigned
   uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
   static const int B = 128;
-  if (v < (1 << 7)) {
+  if (v < (1 << 7)) {         // v即需要编码的值，若小于128，一个8bits可以放下
     *(ptr++) = v;
-  } else if (v < (1 << 14)) {
+  } else if (v < (1 << 14)) { // 大于128，小于16384，需要两个字节，低位首位需要置1
     *(ptr++) = v | B;
     *(ptr++) = v >> 7;
   } else if (v < (1 << 21)) {

@@ -45,11 +45,13 @@ Status WriteBatch::Iterate(Handler* handler) const {
     return Status::Corruption("malformed WriteBatch (too small)");
   }
 
+  // 移除前缀，8字节的seq number，和4个字节的record count
   input.remove_prefix(kHeader);
   Slice key, value;
   int found = 0;
   while (!input.empty()) {
     found++;
+    // 解析操作类型，kTypeValue or kTypeDeletion
     char tag = input[0];
     input.remove_prefix(1);
     switch (tag) {
@@ -84,6 +86,7 @@ int WriteBatchInternal::Count(const WriteBatch* b) {
 }
 
 void WriteBatchInternal::SetCount(WriteBatch* b, int n) {
+  // 存储到rep_八字节之后，详见写入数据格式
   EncodeFixed32(&b->rep_[8], n);
 }
 
@@ -96,9 +99,14 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
 }
 
 void WriteBatch::Put(const Slice& key, const Slice& value) {
+  // 将所有需要的信息写入到rep_, 需要的写入的内容
+  // 1. 键值对个数
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
+  // 2. 操作类型
   rep_.push_back(static_cast<char>(kTypeValue));
+  // 3. 写入 key length + key
   PutLengthPrefixedSlice(&rep_, key);
+  // 4. 写入 value length + value
   PutLengthPrefixedSlice(&rep_, value);
 }
 
@@ -142,8 +150,10 @@ void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
 }
 
 void WriteBatchInternal::Append(WriteBatch* dst, const WriteBatch* src) {
+  // 追加count数目
   SetCount(dst, Count(dst) + Count(src));
   assert(src->rep_.size() >= kHeader);
+  // 将src中除了header之外的数据都追到到dst的尾部
   dst->rep_.append(src->rep_.data() + kHeader, src->rep_.size() - kHeader);
 }
 

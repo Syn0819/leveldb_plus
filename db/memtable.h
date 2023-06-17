@@ -21,6 +21,7 @@ class MemTable {
  public:
   // MemTables are reference counted.  The initial reference count
   // is zero and the caller must call Ref() at least once.
+  // Memtable是有引用计数的，初始化计数为 0
   explicit MemTable(const InternalKeyComparator& comparator);
 
   MemTable(const MemTable&) = delete;
@@ -40,6 +41,8 @@ class MemTable {
 
   // Returns an estimate of the number of bytes of data in use by this
   // data structure. It is safe to call when MemTable is being modified.
+  // 估计memtable的占用空间大小
+  // 该方法线程安全，可以在memtable被调用的时候调用
   size_t ApproximateMemoryUsage();
 
   // Return an iterator that yields the contents of the memtable.

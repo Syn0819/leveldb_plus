@@ -31,16 +31,23 @@ class BytewiseComparatorImpl : public Comparator {
   void FindShortestSeparator(std::string* start,
                              const Slice& limit) const override {
     // Find length of common prefix
+    // 1. 确定最短长度
     size_t min_length = std::min(start->size(), limit.size());
     size_t diff_index = 0;
+    // 2. 找到第一个不同的字符
     while ((diff_index < min_length) &&
            ((*start)[diff_index] == limit[diff_index])) {
       diff_index++;
     }
 
+    // 3. 没有不同的就直接返回
     if (diff_index >= min_length) {
       // Do not shorten if one string is a prefix of the other
     } else {
+      // 3.1 判断start中共同前缀的最后一个字符是否小于0xff，且后一个字符加1要小于limit中共同前缀的后一个字符
+      // 举例：start=“abcd”，limit=“abzf”
+      // diff_index = 2, diff_byte = 'c', diff_byte+1 = 'd' < 'z
+      // 因此strat可以resize到"abd"
       uint8_t diff_byte = static_cast<uint8_t>((*start)[diff_index]);
       if (diff_byte < static_cast<uint8_t>(0xff) &&
           diff_byte + 1 < static_cast<uint8_t>(limit[diff_index])) {

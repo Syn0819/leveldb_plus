@@ -88,6 +88,7 @@ check_cxx_compiler_flag(-Wno-missing-field-initializers
 include(CheckCXXSourceCompiles)
 
 # Test whether C++17 __has_include is available.
+# 检查编译器是否支持 __has_include 预处理器宏，然后通过__has_include检查是否含入头文件
 check_cxx_source_compiles("
 #if defined(__has_include) &&  __has_include(<string>)
 #include <string>

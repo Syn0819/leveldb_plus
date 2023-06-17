@@ -382,6 +382,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   return Status::OK();
 }
 
+// 进行崩溃恢复，从Log文件中生成一个memtable
 Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
                               bool* save_manifest, VersionEdit* edit,
                               SequenceNumber* max_sequence) {
@@ -429,6 +430,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   WriteBatch batch;
   int compactions = 0;
   MemTable* mem = nullptr;
+  // 循环读取日志文件
   while (reader.ReadRecord(&record, &scratch) && status.ok()) {
     if (record.size() < 12) {
       reporter.Corruption(record.size(),
@@ -441,6 +443,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
+    // 将日志记录插入到memtable中
     status = WriteBatchInternal::InsertInto(&batch, mem);
     MaybeIgnoreError(&status);
     if (!status.ok()) {
@@ -451,7 +454,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     if (last_seq > *max_sequence) {
       *max_sequence = last_seq;
     }
-
+    // 如果memtable的大小超过阈值（4kb），需要将其生成SSTable
     if (mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
       compactions++;
       *save_manifest = true;
@@ -502,6 +505,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   return status;
 }
 
+// 将Memtable转为SSTable
 Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
                                 Version* base) {
   mutex_.AssertHeld();
@@ -509,6 +513,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   FileMetaData meta;
   meta.number = versions_->NewFileNumber();
   pending_outputs_.insert(meta.number);
+  // 迭代器，底层是跳表的
   Iterator* iter = mem->NewIterator();
   Log(options_.info_log, "Level-0 table #%llu: started",
       (unsigned long long)meta.number);
@@ -516,6 +521,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
+    // 生成SSTable
     s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
     mutex_.Lock();
   }
@@ -1229,6 +1235,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
       mutex_.Unlock();
       status = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
       bool sync_error = false;
+      // 根据参数 决定是否需要在每次添加完后进行刷盘
       if (status.ok() && options.sync) {
         status = logfile_->Sync();
         if (!status.ok()) {
@@ -1497,19 +1504,25 @@ DB::~DB() = default;
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   *dbptr = nullptr;
 
+  // 1. 初始化DBImpl对象
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
+
+  // 2. 尝试对DBImpl对象进行Recover，恢复之前存在的数据库文件数据
   bool save_manifest = false;
   Status s = impl->Recover(&edit, &save_manifest);
+  // 3. 当DBImpl对象中的memtable为空时，需要创建新的Log和memtable
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
+    // 打开一个可写入的文件
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
                                      &lfile);
     if (s.ok()) {
+      // 实例化log::Writer和Memtable对象
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
       impl->logfile_number_ = new_log_number;
@@ -1518,14 +1531,16 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->mem_->Ref();
     }
   }
+  // 4. 是否需要保存Manifest文件
   if (s.ok() && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.
     edit.SetLogNumber(impl->logfile_number_);
     s = impl->versions_->LogAndApply(&edit, &impl->mutex_);
   }
+  // 5. 判断前面步骤是否成功
   if (s.ok()) {
-    impl->RemoveObsoleteFiles();
-    impl->MaybeScheduleCompaction();
+    impl->RemoveObsoleteFiles(); // 删除过时文件
+    impl->MaybeScheduleCompaction();  // 尝试对数据文件进行compaction
   }
   impl->mutex_.Unlock();
   if (s.ok()) {

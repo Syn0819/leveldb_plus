@@ -53,6 +53,7 @@ bool Reader::SkipToInitialBlock() {
   return true;
 }
 
+// 读取log文件中的记录，保存在record参数中。因为一个记录可能会跨越几个块，因此，ReadRecord方法中包括了一个scratch参数，作为临时存储
 bool Reader::ReadRecord(Slice* record, std::string* scratch) {
   if (last_record_offset_ < initial_offset_) {
     if (!SkipToInitialBlock()) {
@@ -69,6 +70,7 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
 
   Slice fragment;
   while (true) {
+    // 读取log文件，保存读取到的记录至fragment变量，且返回该条记录的类型
     const unsigned int record_type = ReadPhysicalRecord(&fragment);
 
     // ReadPhysicalRecord may have only had an empty trailer remaining in its
@@ -88,7 +90,9 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
       }
     }
 
+    // 根据记录的类型，判断是否需要将当前读取到的记录附加到scratch并继续读取
     switch (record_type) {
+      // 如果是读到到完整的记录，则直接赋给record并返回true
       case kFullType:
         if (in_fragmented_record) {
           // Handle bug in earlier versions of log::Writer where
@@ -105,6 +109,7 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
         last_record_offset_ = prospective_record_offset;
         return true;
 
+      // 读取的是记录的第一部分，则先将这部分记录复制到scratch，返回false表示需要继续读取
       case kFirstType:
         if (in_fragmented_record) {
           // Handle bug in earlier versions of log::Writer where
@@ -129,6 +134,7 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
         }
         break;
 
+      // 读取了数据的最后一部分，整个记录读取完毕，将scratch的数据复制给record，并返回true
       case kLastType:
         if (!in_fragmented_record) {
           ReportCorruption(fragment.size(),

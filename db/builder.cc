@@ -14,12 +14,14 @@
 
 namespace leveldb {
 
+// 生成一个SSTable
 Status BuildTable(const std::string& dbname, Env* env, const Options& options,
                   TableCache* table_cache, Iterator* iter, FileMetaData* meta) {
   Status s;
   meta->file_size = 0;
+  // 迭代器移动到第一个节点
   iter->SeekToFirst();
-
+  // 生成一个SSTable文件名
   std::string fname = TableFileName(dbname, meta->number);
   if (iter->Valid()) {
     WritableFile* file;
@@ -28,9 +30,11 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
       return s;
     }
 
+    // 生成一个TableBuilder
     TableBuilder* builder = new TableBuilder(options, file);
     meta->smallest.DecodeFrom(iter->key());
     Slice key;
+    // 调用迭代器，依次将每个键值对加入到TableBuilder
     for (; iter->Valid(); iter->Next()) {
       key = iter->key();
       builder->Add(key, iter->value());
@@ -40,6 +44,7 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     }
 
     // Finish and check for builder errors
+    // 调用Finish函数生成SSTable
     s = builder->Finish();
     if (s.ok()) {
       meta->file_size = builder->FileSize();

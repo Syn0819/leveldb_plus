@@ -13,6 +13,7 @@
 namespace leveldb {
 namespace log {
 
+// 获取类型的校验码
 static void InitTypeCrc(uint32_t* type_crc) {
   for (int i = 0; i <= kMaxRecordType; i++) {
     char t = static_cast<char>(i);
@@ -32,24 +33,27 @@ Writer::Writer(WritableFile* dest, uint64_t dest_length)
 Writer::~Writer() = default;
 
 // 向Log文件中添加新增的键值对（Slice的形式）
-// 最重要的是文件记录的结构：
+// 日志结构：
 /*
- *  <--------------header-------------->
+ *  <--------------header--------------->
  * |           ｜          ｜            ｜               ｜  
  *  crc (4byte) len (2byte) type (1byte)       content
 */
 Status Writer::AddRecord(const Slice& slice) {
   const char* ptr = slice.data(); // 获取指向slice的实际数据
-  size_t left = slice.size();     // 实际写入的记录内容长度
+  size_t left = slice.size();     // 写入长度
 
   // Fragment the record if necessary and emit it.  Note that if slice
   // is empty, we still want to iterate once to emit a single
   // zero-length record
+  // 意思是 写入内容会进行分片，但是如果写入数据为空，也会进行一次迭代
+  // 以写入一个长度为0的记录
   Status s;
   // 这里begin标记这条记录是否为第一次写入，即如果一个记录跨越多个块
+  // 
   bool begin = true;
   do {
-    const int leftover = kBlockSize - block_offset_; // 一个块的大小减去当前块的写入偏移量 = 当前块剩下的空间
+    const int leftover = kBlockSize - block_offset_; // 当前块剩余空间
     assert(leftover >= 0);
     // 如果当前块剩下的空间连每个记录的header都放不下，则需要一个新的块，并将当前块剩余空间全部置0
     if (leftover < kHeaderSize) {
@@ -57,19 +61,21 @@ Status Writer::AddRecord(const Slice& slice) {
       if (leftover > 0) {
         // Fill the trailer (literal below relies on kHeaderSize being 7)
         static_assert(kHeaderSize == 7, "");
-        dest_->Append(Slice("\x00\x00\x00\x00\x00\x00", leftover));
+        // 为什么是\x00\x00\x00\x00\x00\x00？ 
+        // 最多只有6bytes剩余
+        dest_->Append(Slice("\x00\x00\x00\x00\x00\x00", leftover)); 
       }
       block_offset_ = 0;
     }
 
     // Invariant: we never leave < kHeaderSize bytes in a block.
     assert(kBlockSize - block_offset_ - kHeaderSize >= 0);
-
+ 
     const size_t avail = kBlockSize - block_offset_ - kHeaderSize;  // 当前块去掉一个header的长度剩下的可用空间
     const size_t fragment_length = (left < avail) ? left : avail; // 当前块能够写入的数据 取决于 剩余内容和块剩余空间之中较小的值
 
     RecordType type;
-    const bool end = (left == fragment_length);
+    const bool end = (left == fragment_length); // 判断当前写入内容是否能完整写入到当前块
     // 通过begin和end字段组合判断header类型
     if (begin && end) {
       type = kFullType; // 当前要写入的内容 可以完整写入
@@ -89,6 +95,7 @@ Status Writer::AddRecord(const Slice& slice) {
   return s;
 }
 
+// 将日志写入磁盘
 Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
                                   size_t length) {
   assert(length <= 0xffff);  // Must fit in two bytes

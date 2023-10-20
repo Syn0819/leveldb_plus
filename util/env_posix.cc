@@ -583,8 +583,12 @@ class PosixEnv : public Env {
     return status;
   }
 
+  // 创建一个可写文件
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result) override {
+    // O_TRUNC 如果文件则截断为0
+    // O_WRONLY 只写
+    // O_CREAT 若文件不存在则创建
     int fd = ::open(filename.c_str(),
                     O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {

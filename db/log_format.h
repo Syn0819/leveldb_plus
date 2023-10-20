@@ -11,11 +11,12 @@
 namespace leveldb {
 namespace log {
 
+// 日志记录类型
 enum RecordType {
   // Zero is reserved for preallocated files
   kZeroType = 0,
 
-  kFullType = 1,
+  kFullType = 1,  
 
   // For fragments
   kFirstType = 2,

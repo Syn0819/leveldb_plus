@@ -53,6 +53,8 @@ class Reader {
   // "*scratch" as temporary storage.  The contents filled in *record
   // will only be valid until the next mutating operation on this
   // reader or the next mutation to *scratch.
+  // 读取记录，数据保存在record中，返回值表示读取是否成功
+  // scratch作用: 
   bool ReadRecord(Slice* record, std::string* scratch);
 
   // Returns the physical offset of the last record returned by ReadRecord.
@@ -62,6 +64,7 @@ class Reader {
 
  private:
   // Extend record types with the following special values
+  // 扩展RecordType类型
   enum {
     kEof = kMaxRecordType + 1,
     // Returned whenever we find an invalid physical record.

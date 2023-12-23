@@ -76,6 +76,7 @@ Iterator* MemTable::NewIterator() { return new MemTableIterator(&table_); }
 void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
                    const Slice& value) {
   // Format of an entry is concatenation of:
+  // 采用变长编码，写入entry的格式如下：
   //  key_size     : varint32 of internal_key.size()
   //  key bytes    : char[internal_key.size()]
   //  tag          : uint64((sequence << 8) | type)

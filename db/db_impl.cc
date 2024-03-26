@@ -1209,8 +1209,9 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   w.sync = options.sync;
   w.done = false;
 
-  MutexLock l(&mutex_);
+  MutexLock l(&mutex_); // 不用unique_lock?
   writers_.push_back(&w);
+  // 上锁等唤醒
   while (!w.done && &w != writers_.front()) {
     w.cv.Wait();
   }

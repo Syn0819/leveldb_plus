@@ -418,6 +418,7 @@ bool Version::RecordReadSample(Slice internal_key) {
     return false;
   }
 
+  // 记录SST查找match次数
   struct State {
     GetStats stats;  // Holds first matching file
     int matches;
@@ -443,6 +444,7 @@ bool Version::RecordReadSample(Slice internal_key) {
   // files. But what if we have a single file that contains many
   // overwrites and deletions?  Should we have another mechanism for
   // finding such files?
+  // 只有查询次数大于等于2次的SST可以触发compaction
   if (state.matches >= 2) {
     // 1MB cost is about 1 seek (see comment in Builder::Apply).
     return UpdateStats(state.stats);

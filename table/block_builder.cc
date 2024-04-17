@@ -25,6 +25,10 @@
 //     restarts: uint32[num_restarts]
 //     num_restarts: uint32
 // restarts[i] contains the offset within the block of the ith restart point.
+// 1. SST中使用前缀压缩来减少空间使用
+// 2. 每过k个key，就重新存储一个完整的key。这个重新建立的点就是重启点，需要把位置记下来
+// 方便二分查找
+// 3. 每个block的最后会添加重启点的信息
 
 #include "table/block_builder.h"
 
@@ -58,6 +62,7 @@ size_t BlockBuilder::CurrentSizeEstimate() const {
           sizeof(uint32_t));                     // Restart array length
 }
 
+// 一个Block最后面，存放各个重启点的offset和重启点数量
 Slice BlockBuilder::Finish() {
   // Append restart array
   for (size_t i = 0; i < restarts_.size(); i++) {
@@ -75,6 +80,7 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   assert(buffer_.empty()  // No values yet?
          || options_->comparator->Compare(key, last_key_piece) > 0);
   size_t shared = 0;
+  // 计算当前key与上一个key之间共享的部分
   if (counter_ < options_->block_restart_interval) {
     // See how much sharing to do with previous string
     const size_t min_length = std::min(last_key_piece.size(), key.size());
@@ -82,6 +88,7 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
       shared++;
     }
   } else {
+    // 重启点，需要记录
     // Restart compression
     restarts_.push_back(buffer_.size());
     counter_ = 0;
@@ -89,15 +96,19 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   const size_t non_shared = key.size() - shared;
 
   // Add "<shared><non_shared><value_size>" to buffer_
+  // 共享key大小 + 非共享key大小 + value大小
   PutVarint32(&buffer_, shared);
   PutVarint32(&buffer_, non_shared);
   PutVarint32(&buffer_, value.size());
 
   // Add string delta to buffer_ followed by value
+  // 存数据
   buffer_.append(key.data() + shared, non_shared);
   buffer_.append(value.data(), value.size());
 
   // Update state
+  // 更新 last key = shared + non_shared
+  // 注意这里key.data()返回的是指针
   last_key_.resize(shared);
   last_key_.append(key.data() + shared, non_shared);
   assert(Slice(last_key_) == key);

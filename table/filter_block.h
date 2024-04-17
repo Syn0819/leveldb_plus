@@ -27,6 +27,7 @@ class FilterPolicy;
 //
 // The sequence of calls to FilterBlockBuilder must match the regexp:
 //      (StartBlock AddKey*)* Finish
+// 构建Bloom Filter
 class FilterBlockBuilder {
  public:
   explicit FilterBlockBuilder(const FilterPolicy*);
@@ -49,6 +50,7 @@ class FilterBlockBuilder {
   std::vector<uint32_t> filter_offsets_;
 };
 
+// 读取数据
 class FilterBlockReader {
  public:
   // REQUIRES: "contents" and *policy must stay live while *this is live.

@@ -44,7 +44,8 @@ class BytewiseComparatorImpl : public Comparator {
     if (diff_index >= min_length) {
       // Do not shorten if one string is a prefix of the other
     } else {
-      // 3.1 判断start中共同前缀的最后一个字符是否小于0xff，且后一个字符加1要小于limit中共同前缀的后一个字符
+      // 3.1 判断start中共同前缀的最后一个字符是否小于0xff，
+      // 且后一个字符加1要小于limit中共同前缀的后一个字符
       // 举例：start=“abcd”，limit=“abzf”
       // diff_index = 2, diff_byte = 'c', diff_byte+1 = 'd' < 'z
       // 因此strat可以resize到"abd"
@@ -60,6 +61,7 @@ class BytewiseComparatorImpl : public Comparator {
 
   void FindShortSuccessor(std::string* key) const override {
     // Find first character that can be incremented
+    // 找到最小前缀，即第一个不为0的位，再+1
     size_t n = key->size();
     for (size_t i = 0; i < n; i++) {
       const uint8_t byte = (*key)[i];

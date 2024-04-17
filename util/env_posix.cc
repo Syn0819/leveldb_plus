@@ -344,6 +344,7 @@ class PosixWritableFile final : public WritableFile {
 
   Status Flush() override { return FlushBuffer(); }
 
+  // TODO: 不太清楚这里
   Status Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.
     //

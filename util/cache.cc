@@ -48,6 +48,8 @@ struct LRUHandle {
   LRUHandle* prev;
   size_t charge;  // TODO(opt): Only allow uint32_t?
   size_t key_length;
+  // 标志一个条目在缓存中是否还存在引用
+  // 什么时候更改？1. 通过deleter、Erase删除条目，通过Insert插入重复的元素、或者销毁缓存
   bool in_cache;     // Whether entry is in the cache.
   uint32_t refs;     // References, including cache reference, if present.
   uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
@@ -67,6 +69,9 @@ struct LRUHandle {
 // table implementations in some of the compiler/runtime combinations
 // we have tested.  E.g., readrandom speeds up by ~5% over the g++
 // 4.4.3's builtin hashtable.
+// 提供了一个简单的哈希表实现
+// 1. 去除了移植性问题
+// 2. 对比内置实现，快了将近5%
 class HandleTable {
  public:
   HandleTable() : length_(0), elems_(0), list_(nullptr) { Resize(); }

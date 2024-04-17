@@ -54,7 +54,10 @@ class LEVELDB_EXPORT Comparator {
   // Simple comparator implementations may return with *start unchanged,
   // i.e., an implementation of this method that does nothing is correct.
 
-  // FindShortestSeparator 用于压缩字符串的存储空间。目的是，优化SSTable中Index Block里的索引项的长度，使得索引更短。因为每一个Data Block对应的索引项大于等于这个Data Block的最后一个项，而小于下一个Data Block的第一个项，通过这个函数可以减小索引项的长度
+  // FindShortestSeparator 用于压缩字符串的存储空间
+  // 目的是，优化SSTable中Index Block里的索引项的长度，使得索引更短。
+  // 因为每一个Data Block对应的索引项大于等于这个Data Block的最后一个项，
+  // 而小于下一个Data Block的第一个项，通过这个函数可以减小索引项的长度
   // 若 start 小于 limit，将start缩短为两个字符串中的相同前缀
   // 注意函数什么都不做也是合法的
   virtual void FindShortestSeparator(std::string* start,

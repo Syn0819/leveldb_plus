@@ -41,7 +41,7 @@ char* Arena::AllocateAligned(size_t bytes) {
   const int align = (sizeof(void*) > 8) ? sizeof(void*) : 8;
   static_assert((align & (align - 1)) == 0,
                 "Pointer size should be a power of 2");
-  // 取模获取alloc_ptr_最后三个比特位
+  // 取模获取alloc_ptr_最后几位(根据平台指针大小)
   // align减去就是需要补齐的大小
   size_t current_mod = reinterpret_cast<uintptr_t>(alloc_ptr_) & (align - 1);
   size_t slop = (current_mod == 0 ? 0 : align - current_mod);

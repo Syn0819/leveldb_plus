@@ -70,21 +70,24 @@ Status Writer::AddRecord(const Slice& slice) {
 
     // Invariant: we never leave < kHeaderSize bytes in a block.
     assert(kBlockSize - block_offset_ - kHeaderSize >= 0);
- 
-    const size_t avail = kBlockSize - block_offset_ - kHeaderSize;  // 当前块去掉一个header的长度剩下的可用空间
-    const size_t fragment_length = (left < avail) ? left : avail; // 当前块能够写入的数据 取决于 剩余内容和块剩余空间之中较小的值
+
+    // 当前块去掉一个header的长度剩下的可用空间
+    const size_t avail = kBlockSize - block_offset_ - kHeaderSize;
+    // 当前块能够写入的数据 取决于 剩余内容和块剩余空间之中较小的值
+    const size_t fragment_length = (left < avail) ? left : avail;
 
     RecordType type;
-    const bool end = (left == fragment_length); // 判断当前写入内容是否能完整写入到当前块
+    // 判断当前写入内容是否刚好写入到当前块
+    const bool end = (left == fragment_length);
     // 通过begin和end字段组合判断header类型
     if (begin && end) {
-      type = kFullType; // 当前要写入的内容 可以完整写入
+      type = kFullType; // 当前写入，完整写了一个块
     } else if (begin) {
-      type = kFirstType;  // 当前要写入的内容的开头一部分 写入当前块
+      type = kFirstType;  // 当前写入，是当前块的第一个写入
     } else if (end) {
-      type = kLastType;   // 当前要写入的内容的最后一部分 写入当前块
+      type = kLastType;   // 当前写入，是当前块的最后一个写入
     } else {
-      type = kMiddleType; // 当前要写入的内容的中间一部分 写入当前块
+      type = kMiddleType; // 当前写入，是当前块的中间一个写入
     }
 
     s = EmitPhysicalRecord(type, ptr, fragment_length);
@@ -95,16 +98,20 @@ Status Writer::AddRecord(const Slice& slice) {
   return s;
 }
 
-// 将日志写入磁盘
+// 函数功能：将日志写入磁盘
 Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
                                   size_t length) {
+  // 保证写入长度不大于65535
   assert(length <= 0xffff);  // Must fit in two bytes
+  // 确保记录写入长度不超过块大小
   assert(block_offset_ + kHeaderSize + length <= kBlockSize);
 
   // Format the header
   char buf[kHeaderSize];
+  // little-endian
   buf[4] = static_cast<char>(length & 0xff);
   buf[5] = static_cast<char>(length >> 8);
+  // type
   buf[6] = static_cast<char>(t);
 
   // Compute the crc of the record type and the payload.
@@ -117,6 +124,7 @@ Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
   if (s.ok()) {
     s = dest_->Append(Slice(ptr, length));
     if (s.ok()) {
+      // WAL立即写盘
       s = dest_->Flush();
     }
   }

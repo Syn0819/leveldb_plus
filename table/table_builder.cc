@@ -138,6 +138,7 @@ void TableBuilder::Flush() {
   }
 }
 
+//
 void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   // File format contains a sequence of blocks where each block has:
   //    block_data: uint8[n]

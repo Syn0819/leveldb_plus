@@ -57,14 +57,18 @@ class TwoLevelIterator : public Iterator {
   void SetDataIterator(Iterator* data_iter);
   void InitDataBlock();
 
+  // 用于根据从index_iter获得的信息来加载数据块
   BlockFunction block_function_;
   void* arg_;
   const ReadOptions options_;
   Status status_;
+  // 索引迭代器，快速定位包含特定键的数据块
   IteratorWrapper index_iter_;
+  // 数据迭代器，实际遍历数据块
   IteratorWrapper data_iter_;  // May be nullptr
   // If data_iter_ is non-null, then "data_block_handle_" holds the
   // "index_value" passed to block_function_ to create the data_iter_.
+  // data_iter_ 可能是空的，
   std::string data_block_handle_;
 };
 
@@ -80,9 +84,13 @@ TwoLevelIterator::TwoLevelIterator(Iterator* index_iter,
 TwoLevelIterator::~TwoLevelIterator() = default;
 
 void TwoLevelIterator::Seek(const Slice& target) {
+  // 1. 在索引块里找包含目标的数据块位置
   index_iter_.Seek(target);
+  // 2. 初始化数据块迭代器
   InitDataBlock();
+  // 3. 若数据块正确加载，则在里面搜索`
   if (data_iter_.iter() != nullptr) data_iter_.Seek(target);
+  // 4. 如果当前数据块是空的，则move到下一个
   SkipEmptyDataBlocksForward();
 }
 

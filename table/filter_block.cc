@@ -57,6 +57,7 @@ Slice FilterBlockBuilder::Finish() {
 
 void FilterBlockBuilder::GenerateFilter() {
   const size_t num_keys = start_.size();
+  // 1. 当前没有等待记录的key，直接添加就行
   if (num_keys == 0) {
     // Fast path if there are no keys for this filter
     filter_offsets_.push_back(result_.size());
@@ -64,8 +65,9 @@ void FilterBlockBuilder::GenerateFilter() {
   }
 
   // Make list of keys from flattened key structure
-  // 恢复真实的key。
-  // keys_存的是所有键值拼接起来的字符串，并没有分开存储。而是用start_来确定每个key的起始位置
+  // 2. 恢复真实的key，放到tmp_keys_
+  //   keys_存的是所有键值拼接起来的字符串，并没有分开存储。
+  //   而是用start_来确定每个key的起始位置
   start_.push_back(keys_.size());  // Simplify length computation
   tmp_keys_.resize(num_keys);
   for (size_t i = 0; i < num_keys; i++) {
@@ -76,7 +78,7 @@ void FilterBlockBuilder::GenerateFilter() {
   }
 
   // Generate filter for current set of keys and append to result_.
-  // 构建一个新的filter
+  // 3. 构建一个新的filter
   filter_offsets_.push_back(result_.size());
   policy_->CreateFilter(&tmp_keys_[0], static_cast<int>(num_keys), &result_);
 

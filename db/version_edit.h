@@ -20,7 +20,7 @@ struct FileMetaData {
   FileMetaData() : refs(0), allowed_seeks(1 << 30), file_size(0) {}
 
   int refs;
-  // ？
+  // 应该是说如果这个SST正在或者已经compaction，就不能在查找了
   int allowed_seeks;  // Seeks allowed until compaction
   // 唯一标识一个SST
   uint64_t number;
@@ -90,7 +90,7 @@ class VersionEdit {
   typedef std::set<std::pair<int, uint64_t>> DeletedFileSet;
 
   std::string comparator_;
-  uint64_t log_number_;
+  uint64_t log_number_; // 日志编号，该num之前的数据都可以删除，已经持久化
   uint64_t prev_log_number_;
   uint64_t next_file_number_;
   SequenceNumber last_sequence_;
@@ -100,8 +100,11 @@ class VersionEdit {
   bool has_next_file_number_;
   bool has_last_sequence_;
 
+  // 记录每一层要进行下一次compaction的起始key
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
+  // 可以删除的SST文件
   DeletedFileSet deleted_files_;
+  // 相对比上次的version，本次新增的文件
   std::vector<std::pair<int, FileMetaData>> new_files_;
 };
 

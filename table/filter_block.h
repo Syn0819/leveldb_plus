@@ -27,7 +27,7 @@ class FilterPolicy;
 //
 // The sequence of calls to FilterBlockBuilder must match the regexp:
 //      (StartBlock AddKey*)* Finish
-// 构建Bloom Filter
+// FilterBlockBuilder用来构建包含一个SST中所需的Bloom Filter
 class FilterBlockBuilder {
  public:
   explicit FilterBlockBuilder(const FilterPolicy*);
@@ -35,8 +35,14 @@ class FilterBlockBuilder {
   FilterBlockBuilder(const FilterBlockBuilder&) = delete;
   FilterBlockBuilder& operator=(const FilterBlockBuilder&) = delete;
 
+  // 根据data block offset来生成新的filter block
   void StartBlock(uint64_t block_offset);
+  // 增加key到待写入的filter block中
   void AddKey(const Slice& key);
+  // 写入filter block数据，包括
+  // 1. 每个filter的偏移量
+  // 2. filter的总数据量大小
+  // 3. kFilterBaseLg 阈值大小
   Slice Finish();
 
  private:
@@ -44,9 +50,12 @@ class FilterBlockBuilder {
 
   const FilterPolicy* policy_;
   std::string keys_;             // Flattened key contents
+  // 每个key在keys_中的偏移量
   std::vector<size_t> start_;    // Starting index in keys_ of each key
+  // filter二进制数据
   std::string result_;           // Filter data computed so far
   std::vector<Slice> tmp_keys_;  // policy_->CreateFilter() argument
+  // 每2kb数据构建一个filter，所以会有多个filter，需要记录各个filter的偏移量
   std::vector<uint32_t> filter_offsets_;
 };
 

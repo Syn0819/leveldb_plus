@@ -39,6 +39,7 @@ void VersionEdit::Clear() {
   new_files_.clear();
 }
 
+// 按照一定顺序编码成员变量
 void VersionEdit::EncodeTo(std::string* dst) const {
   if (has_comparator_) {
     PutVarint32(dst, kComparator);

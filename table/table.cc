@@ -38,17 +38,21 @@ struct Table::Rep {
 Status Table::Open(const Options& options, RandomAccessFile* file,
                    uint64_t size, Table** table) {
   *table = nullptr;
+  // 读取Footer
+  // footer数据大小不可能会小于这个值，会padding
   if (size < Footer::kEncodedLength) {
     return Status::Corruption("file is too short to be an sstable");
   }
 
   char footer_space[Footer::kEncodedLength];
   Slice footer_input;
+  // 根据SST的格式，footer在文件的最后
   Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
                         &footer_input, footer_space);
   if (!s.ok()) return s;
 
   Footer footer;
+  // 解码
   s = footer.DecodeFrom(&footer_input);
   if (!s.ok()) return s;
 
@@ -211,6 +215,7 @@ Iterator* Table::NewIterator(const ReadOptions& options) const {
       &Table::BlockReader, const_cast<Table*>(this), options);
 }
 
+// SST的读取流程
 Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
                           void (*handle_result)(void*, const Slice&,
                                                 const Slice&)) {

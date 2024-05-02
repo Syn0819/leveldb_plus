@@ -185,16 +185,21 @@ class VersionSet {
   // current version.  Will release *mu while actually writing to the file.
   // REQUIRES: *mu is held on entry.
   // REQUIRES: no other thread concurrently calls LogAndApply()
+  // 将一个edit应用到当前Version，并将当前状态持久化(即将变更记录更新到磁盘上)
+  // 当在持久化的时候，不需要加锁
   Status LogAndApply(VersionEdit* edit, port::Mutex* mu)
       EXCLUSIVE_LOCKS_REQUIRED(mu);
 
   // Recover the last saved descriptor from persistent storage.
+  // 从持久化的日志中恢复db的状态
   Status Recover(bool* save_manifest);
 
   // Return the current version.
+  // 获取当前版本
   Version* current() const { return current_; }
 
   // Return the current manifest file number
+  // 获取MANIFEST文件编号
   uint64_t ManifestFileNumber() const { return manifest_file_number_; }
 
   // Allocate and return a new file number
@@ -238,24 +243,30 @@ class VersionSet {
   // Returns nullptr if there is no compaction to be done.
   // Otherwise returns a pointer to a heap-allocated object that
   // describes the compaction.  Caller should delete the result.
+  // 选择参与compaction的level和文件编号
   Compaction* PickCompaction();
 
   // Return a compaction object for compacting the range [begin,end] in
   // the specified level.  Returns nullptr if there is nothing in that
   // level that overlaps the specified range.  Caller should delete
   // the result.
+  // 返回在指定level层，在[begin, end]范围内可以进行compaction的文件
   Compaction* CompactRange(int level, const InternalKey* begin,
                            const InternalKey* end);
 
   // Return the maximum overlapping data (in bytes) at next level for any
   // file at a level >= 1.
+  // 获取level+1层重叠部分区域的字节数
   int64_t MaxNextLevelOverlappingBytes();
 
   // Create an iterator that reads over the compaction inputs for "*c".
   // The caller should delete the iterator when no longer needed.
+  // 为参与compaction的文件创建一个迭代器
+  // 在不使用这些迭代器后，要保证删除
   Iterator* MakeInputIterator(Compaction* c);
 
   // Returns true iff some level needs a compaction.
+  // 判断是否需要进行compaction
   bool NeedsCompaction() const {
     Version* v = current_;
     return (v->compaction_score_ >= 1) || (v->file_to_compact_ != nullptr);
@@ -263,6 +274,7 @@ class VersionSet {
 
   // Add all files listed in any live version to *live.
   // May also mutate some internal state.
+  //
   void AddLiveFiles(std::set<uint64_t>* live);
 
   // Return the approximate offset in the database of the data for
@@ -293,6 +305,7 @@ class VersionSet {
                  const std::vector<FileMetaData*>& inputs2,
                  InternalKey* smallest, InternalKey* largest);
 
+  // 设置compaction任务，确定将哪些文件包含在compaction中（level and level+1）
   void SetupOtherInputs(Compaction* c);
 
   // Save current contents to *log

@@ -53,7 +53,8 @@ bool Reader::SkipToInitialBlock() {
   return true;
 }
 
-// 读取log文件中的记录，保存在record参数中。因为一个记录可能会跨越几个块，因此，ReadRecord方法中包括了一个scratch参数，作为临时存储
+// 读取log文件中的记录，保存在record参数中。因为一个记录可能会跨越几个块
+// 因此，ReadRecord方法中包括了一个scratch参数，作为临时存储
 bool Reader::ReadRecord(Slice* record, std::string* scratch) {
   if (last_record_offset_ < initial_offset_) {
     if (!SkipToInitialBlock()) {

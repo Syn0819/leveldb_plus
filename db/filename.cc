@@ -123,13 +123,17 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
 Status SetCurrentFile(Env* env, const std::string& dbname,
                       uint64_t descriptor_number) {
   // Remove leading "dbname/" and add newline to manifest file name
+  // 获取MANITEST文件名
   std::string manifest = DescriptorFileName(dbname, descriptor_number);
   Slice contents = manifest;
   assert(contents.starts_with(dbname + "/"));
   contents.remove_prefix(dbname.size() + 1);
+  // 生成一个临时文件名
   std::string tmp = TempFileName(dbname, descriptor_number);
+  // 同步写入
   Status s = WriteStringToFileSync(env, contents.ToString() + "\n", tmp);
   if (s.ok()) {
+    // 写入成功后，将临时文件重命名为CURRENT
     s = env->RenameFile(tmp, CurrentFileName(dbname));
   }
   if (!s.ok()) {

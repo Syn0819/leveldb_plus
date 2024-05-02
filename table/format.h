@@ -85,6 +85,7 @@ static const size_t kBlockTrailerSize = 5;
 struct BlockContents {
   Slice data;           // Actual contents of data
   bool cachable;        // True iff data can be cached
+  // 表示数据块的内存是否是堆上分配，是的话需要主动释放内存
   bool heap_allocated;  // True iff caller should delete[] data.data()
 };
 

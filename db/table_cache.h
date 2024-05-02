@@ -19,6 +19,8 @@ namespace leveldb {
 
 class Env;
 
+// 缓存SST
+// ctor by DBImpl
 class TableCache {
  public:
   TableCache(const std::string& dbname, const Options& options, int entries);
@@ -53,7 +55,7 @@ class TableCache {
   Env* const env_;
   const std::string dbname_;
   const Options& options_;
-  Cache* cache_;
+  Cache* cache_; // lru cache，不是无限缓存
 };
 
 }  // namespace leveldb

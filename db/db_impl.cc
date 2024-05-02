@@ -511,6 +511,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
   FileMetaData meta;
+  // 给一个新的id
   meta.number = versions_->NewFileNumber();
   pending_outputs_.insert(meta.number);
   // 迭代器，底层是跳表的

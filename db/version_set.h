@@ -42,6 +42,8 @@ class WritableFile;
 // Return the smallest index i such that files[i]->largest >= key.
 // Return files.size() if there is no such file.
 // REQUIRES: "files" contains a sorted list of non-overlapping files.
+// 返回值：在给定的文件列表中，第一个最大key大于等于给定key的文件index
+//        如果不存在这样的文件，则返回files.size()
 int FindFile(const InternalKeyComparator& icmp,
              const std::vector<FileMetaData*>& files, const Slice& key);
 
@@ -51,6 +53,7 @@ int FindFile(const InternalKeyComparator& icmp,
 // largest==nullptr represents a key largest than all keys in the DB.
 // REQUIRES: If disjoint_sorted_files, files[] contains disjoint ranges
 //           in sorted order.
+// 返回值：如果files中存在文件和给定key范围重合，则返回true
 bool SomeFileOverlapsRange(const InternalKeyComparator& icmp,
                            bool disjoint_sorted_files,
                            const std::vector<FileMetaData*>& files,
@@ -168,7 +171,7 @@ class Version {
   // are initialized by Finalize().
   // compaction打分，小于1的还不需要压缩
   double compaction_score_;
-  int compaction_level_;
+  int compaction_level_; // 什么时候初始化
 };
 
 class VersionSet {
@@ -269,6 +272,8 @@ class VersionSet {
   // 判断是否需要进行compaction
   bool NeedsCompaction() const {
     Version* v = current_;
+    // file_to_compact_ 记录的是读操作中的无效查询文件
+    // compaction_score_，by VersionSet::Finalize
     return (v->compaction_score_ >= 1) || (v->file_to_compact_ != nullptr);
   }
 
@@ -316,7 +321,7 @@ class VersionSet {
   Env* const env_;
   const std::string dbname_;
   const Options* const options_;
-  TableCache* const table_cache_;
+  TableCache* const table_cache_; // SST缓存
   const InternalKeyComparator icmp_;
   uint64_t next_file_number_;
   uint64_t manifest_file_number_;
@@ -325,8 +330,9 @@ class VersionSet {
   uint64_t prev_log_number_;  // 0 or backing store for memtable being compacted
 
   // Opened lazily
-  WritableFile* descriptor_file_;
-  log::Writer* descriptor_log_;
+  WritableFile* descriptor_file_; // manifest文件写入器
+  log::Writer* descriptor_log_; // log文件写入器
+  // 多版本
   Version dummy_versions_;  // Head of circular doubly-linked list of versions.
   Version* current_;        // == dummy_versions_.prev_
 

@@ -108,9 +108,10 @@ class DBIter : public Iterator {
 
   DBImpl* db_;
   const Comparator* const user_comparator_;
-  Iterator* const iter_;
-  SequenceNumber const sequence_;
+  Iterator* const iter_; // MergingIterator
+  SequenceNumber const sequence_; // 快照号
   Status status_;
+  // 保存上一个被删除的key, value
   std::string saved_key_;    // == current key when direction_==kReverse
   std::string saved_value_;  // == current raw value when direction_==kReverse
   Direction direction_;
@@ -159,6 +160,7 @@ void DBIter::Next() {
     // saved_key_ already contains the key to skip past.
   } else {
     // Store in saved_key_ the current key so we skip it below.
+    // 将当前迭代器指向的InternalKey保存在save_key_
     SaveKey(ExtractUserKey(iter_->key()), &saved_key_);
 
     // iter_ is pointing to current key. We can now safely move to the next to
@@ -174,21 +176,27 @@ void DBIter::Next() {
   FindNextUserEntry(true, &saved_key_);
 }
 
+// 找到下一个不同且最新操作不是删除的UserKey，保证一个UserKey只取出一次且是当前快照下的最新数据
 void DBIter::FindNextUserEntry(bool skipping, std::string* skip) {
   // Loop until we hit an acceptable entry to yield
   assert(iter_->Valid());
   assert(direction_ == kForward);
   do {
     ParsedInternalKey ikey;
+    // 解析InternalKey，得到UserKey和sequence，不考虑更新的sequence数据
     if (ParseKey(&ikey) && ikey.sequence <= sequence_) {
       switch (ikey.type) {
         case kTypeDeletion:
           // Arrange to skip all upcoming entries for this key since
           // they are hidden by this deletion.
+          // 将该键值对的UserKey保存在skip，设置标识位，表示后续跳过这个被删除的UserKey
           SaveKey(ikey.user_key, skip);
           skipping = true;
           break;
         case kTypeValue:
+          // skipping为true且当前键值对的UserKey小于等于skip，表示这个UserKey与之前的
+          // 相同或者已经被删除了，忽略
+          // 否则，说明查到了最新的数据
           if (skipping &&
               user_comparator_->Compare(ikey.user_key, *skip) <= 0) {
             // Entry hidden

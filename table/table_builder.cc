@@ -37,15 +37,15 @@ struct TableBuilder::Rep {
 
   Options options;
   Options index_block_options;
-  WritableFile* file;
-  uint64_t offset;
+  WritableFile* file; // 文件抽象
+  uint64_t offset;  // 文件写入位置
   Status status;
-  BlockBuilder data_block;
-  BlockBuilder index_block;
-  std::string last_key;
-  int64_t num_entries;
+  BlockBuilder data_block;  // data_block数据缓存
+  BlockBuilder index_block; // index_block数据缓存
+  std::string last_key; // 最后一个键，也就是最大键
+  int64_t num_entries;  // data_block中的entry数
   bool closed;  // Either Finish() or Abandon() has been called.
-  FilterBlockBuilder* filter_block;
+  FilterBlockBuilder* filter_block; // filter_block数据缓存
 
   // We do not emit the index entry for a block until we have seen the
   // first key for the next data block.  This allows us to use shorter
@@ -56,8 +56,7 @@ struct TableBuilder::Rep {
   // blocks.
   //
   // Invariant: r->pending_index_entry is true only if data_block is empty.
-  // 控制开启index block
-  bool pending_index_entry;
+  bool pending_index_entry; // 表示刚刷新一个Data Block到磁盘，需要开启index block
   BlockHandle pending_handle;  // Handle to add to index block
 
   std::string compressed_output;
@@ -100,8 +99,10 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
     assert(r->options.comparator->Compare(key, Slice(r->last_key)) > 0);
   }
 
+  // 一个Data Block刚刷到磁盘
   if (r->pending_index_entry) {
     assert(r->data_block.empty());
+    // 找到一个更短的key，更新last_key，以更紧凑的表示键范围
     r->options.comparator->FindShortestSeparator(&r->last_key, key);
     std::string handle_encoding;
     r->pending_handle.EncodeTo(&handle_encoding);
@@ -115,7 +116,7 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
   }
 
   r->last_key.assign(key.data(), key.size());
-  // 写入计数
+  // 写入计数，在
   r->num_entries++;
   // 数据写入block, 主要就是key格式的转换（有共享）
   r->data_block.Add(key, value);

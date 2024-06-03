@@ -45,7 +45,7 @@ class BlockBuilder {
   const Options* options_;
   // 序列化后的数据
   std::string buffer_;              // Destination buffer
-  // 重启点？for what
+  // 重启点
   std::vector<uint32_t> restarts_;  // Restart points
   // 重启点计数器
   int counter_;                     // Number of entries emitted since restart

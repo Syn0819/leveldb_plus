@@ -150,8 +150,10 @@ void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
 }
 
 void WriteBatchInternal::Append(WriteBatch* dst, const WriteBatch* src) {
+  // 追加count数目
   SetCount(dst, Count(dst) + Count(src));
   assert(src->rep_.size() >= kHeader);
+  // 将src中除了header之外的数据都追到到dst的尾部
   dst->rep_.append(src->rep_.data() + kHeader, src->rep_.size() - kHeader);
 }
 

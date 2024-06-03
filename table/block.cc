@@ -26,9 +26,11 @@ Block::Block(const BlockContents& contents)
     : data_(contents.data.data()),
       size_(contents.data.size()),
       owned_(contents.heap_allocated) {
+  // 一个block的大小不能小于4字节
   if (size_ < sizeof(uint32_t)) {
     size_ = 0;  // Error marker
   } else {
+    // 最大允许的重启点数目，这里就是减去四个字节，然后按字节计数
     size_t max_restarts_allowed = (size_ - sizeof(uint32_t)) / sizeof(uint32_t);
     if (NumRestarts() > max_restarts_allowed) {
       // The size is too small for NumRestarts()

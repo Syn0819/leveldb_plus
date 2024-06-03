@@ -38,25 +38,25 @@ struct Table::Rep {
 Status Table::Open(const Options& options, RandomAccessFile* file,
                    uint64_t size, Table** table) {
   *table = nullptr;
-  // 读取Footer
-  // footer数据大小不可能会小于这个值，会padding
+  // 1. 读取Footer
+  //  footer数据大小不可能会小于这个值，会padding
   if (size < Footer::kEncodedLength) {
     return Status::Corruption("file is too short to be an sstable");
   }
 
   char footer_space[Footer::kEncodedLength];
   Slice footer_input;
-  // 根据SST的格式，footer在文件的最后
+  // 2. 根据SST的格式，footer在文件的最后
   Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
                         &footer_input, footer_space);
   if (!s.ok()) return s;
 
   Footer footer;
-  // 解码
+  // 3. 解码Footer数据
   s = footer.DecodeFrom(&footer_input);
   if (!s.ok()) return s;
 
-  // Read the index block
+  // 4. Read the index block
   BlockContents index_block_contents;
   ReadOptions opt;
   if (options.paranoid_checks) {
@@ -83,7 +83,9 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
   return s;
 }
 
+// 根据Footer中的metaindex_handle解析出block内容
 void Table::ReadMeta(const Footer& footer) {
+  // 1. 没有设置filter策略就不需要解析
   if (rep_->options.filter_policy == nullptr) {
     return;  // Do not need any metadata
   }
@@ -106,12 +108,14 @@ void Table::ReadMeta(const Footer& footer) {
   key.append(rep_->options.filter_policy->Name());
   iter->Seek(key);
   if (iter->Valid() && iter->key() == Slice(key)) {
+    // 根据filter索引信息读取内容
     ReadFilter(iter->value());
   }
   delete iter;
   delete meta;
 }
 
+// 读取Filter Block内容
 void Table::ReadFilter(const Slice& filter_handle_value) {
   Slice v = filter_handle_value;
   BlockHandle filter_handle;
@@ -126,6 +130,7 @@ void Table::ReadFilter(const Slice& filter_handle_value) {
     opt.verify_checksums = true;
   }
   BlockContents block;
+  // 读取
   if (!ReadBlock(rep_->file, opt, filter_handle, &block).ok()) {
     return;
   }
@@ -169,19 +174,25 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
 
   if (s.ok()) {
     BlockContents contents;
+    // 查看该block是否有缓存
     if (block_cache != nullptr) {
+      // 这里应该是在生成 用于cache中查找的 key
+      // TODO：如何进行查找的？
       char cache_key_buffer[16];
       EncodeFixed64(cache_key_buffer, table->rep_->cache_id);
       EncodeFixed64(cache_key_buffer + 8, handle.offset());
       Slice key(cache_key_buffer, sizeof(cache_key_buffer));
       cache_handle = block_cache->Lookup(key);
       if (cache_handle != nullptr) {
+        // 缓存命中
         block = reinterpret_cast<Block*>(block_cache->Value(cache_handle));
       } else {
+        // 缓存未命中，直接从SST中读取
         s = ReadBlock(table->rep_->file, options, handle, &contents);
         if (s.ok()) {
           block = new Block(contents);
           if (contents.cachable && options.fill_cache) {
+            // 如果设置了可缓存，则添加进缓存
             cache_handle = block_cache->Insert(key, block, block->size(),
                                                &DeleteCachedBlock);
           }
@@ -198,9 +209,12 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
   Iterator* iter;
   if (block != nullptr) {
     iter = block->NewIterator(table->rep_->options.comparator);
+    // 这里注册迭代器在析构时的清理函数
     if (cache_handle == nullptr) {
+      // 无缓存，直接销毁迭代器以及其中包含的data block数据
       iter->RegisterCleanup(&DeleteBlock, block, nullptr);
     } else {
+      // 有缓存，只销毁迭代器中data block的引用，实际数据的销毁交给缓存模块
       iter->RegisterCleanup(&ReleaseBlock, block_cache, cache_handle);
     }
   } else {
@@ -221,15 +235,18 @@ Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
                                                 const Slice&)) {
   Status s;
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
+  // 查询到了
   iiter->Seek(k);
   if (iiter->Valid()) {
     Slice handle_value = iiter->value();
     FilterBlockReader* filter = rep_->filter;
     BlockHandle handle;
+    // 查询filter，看这个键是否存在
     if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
         !filter->KeyMayMatch(handle.offset(), k)) {
       // Not found
     } else {
+      // 从data block中查询数据
       Iterator* block_iter = BlockReader(this, options, iiter->value());
       block_iter->Seek(k);
       if (block_iter->Valid()) {

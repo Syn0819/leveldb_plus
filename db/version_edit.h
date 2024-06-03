@@ -100,11 +100,11 @@ class VersionEdit {
   bool has_next_file_number_;
   bool has_last_sequence_;
 
-  // 记录每一层要进行下一次compaction的起始key
+  // 本次文件合并时每层的结束位置
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
-  // 可以删除的SST文件
+  // 本次Compaction所删除的文件，即合并了哪些文件
   DeletedFileSet deleted_files_;
-  // 相对比上次的version，本次新增的文件
+  // 本次合并新增的文件，FileMetaData即文件元信息
   std::vector<std::pair<int, FileMetaData>> new_files_;
 };
 

@@ -105,10 +105,11 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
 }
 
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
+  // 1. 解析出LookUpKey
   Slice memkey = key.memtable_key();
   // 生成一个SkipList迭代器
   Table::Iterator iter(&table_);
-  // 跳表中查找
+  // 2. 跳表中查找，seek中会解析出Internal key
   iter.Seek(memkey.data());
   if (iter.Valid()) {
     // entry format is:
@@ -122,9 +123,9 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
     // all entries with overly large sequence numbers.
     const char* entry = iter.key();
     uint32_t key_length;
-    // 获取key的值
+    // 3. 解析出user key
     const char* key_ptr = GetVarint32Ptr(entry, entry + 5, &key_length);
-    // 如果判断key完全相同，则继续取出ValueType，判断是否已经删除
+    // 4. 如果判断key完全相同，则继续取出ValueType，判断是否已经删除
     if (comparator_.comparator.user_comparator()->Compare(
             Slice(key_ptr, key_length - 8), key.user_key()) == 0) {
       // Correct user key
